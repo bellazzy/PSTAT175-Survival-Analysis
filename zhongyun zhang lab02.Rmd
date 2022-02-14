@@ -1,0 +1,190 @@
+---
+title: "lab2"
+author: "zhongyun zhang"
+date: "2019/10/21"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Question1
+##a)Use survfit to plot the Kaplan–Meier estimator of the data along with a 95% confidence interval.
+First, we need to import vets.txt
+Second, we read in the first column of data as a vector and call it vet.time
+``` {r}
+vets <- read.table("~/Desktop/2019 Fall/PSTAT 175/lab2/vets.txt", quote="\"", comment.char="")
+vet.time<-vets$V1
+```
+We read second column as a vector vet.cns, in this column, 1 is an event occured 
+for that patient and 0 is when that patient is censored
+```{r vet.cns}
+vet.cns<-vets$V2
+```
+we need to load library survival
+we create a function called vet.surv by using the Surv function. 
+```{r vet.surv}
+#install.packages("survival")
+library(survival)
+vet.surv<-Surv(vet.time,vet.cns)
+```
+Use plot function on the results from survfit to generate a picture of the estimate
+of the survival function with a 95% confidence interval.
+```{r echo=TRUE}
+vet.fit = survfit(Surv(vet.time,vet.cns)~1,data=vets)
+par(mar=c(5,5,4,2))
+plot(vet.fit,main="Kaplan-Meier Curves \n for Ovarian 
+     Cancer Patients",xlab="Survival time",
+     ylab=expression(hat(S)(t)),lwd=2, mark.time = TRUE,mark=18)
+```
+
+##b)Calculate an estimate of the quartiles of this distribution (i.e. the 75th, 50th, and 25th percentiles.)
+```{r}
+quantile(vet.fit, probs=c(.25,.5,0.75), conf.int=FALSE)
+```
+The estimate of 75th percentile is 162.
+The estimate of 50th percentile is 80.
+The estimate of 25th percentile is 25.
+
+##Question 2
+##a)
+Construct a survival object ret.surv by using Surv function.
+First, we need to load library survival
+```{r}
+#install.packages("survival")
+library(survival)
+```
+Second, we need to import data set lung which is available from the survival library.
+```{lung}
+data(lung)
+```
+Then, we can construct surv function
+```{r lung.surv}
+lung.surv <- Surv(lung$time,lung$status)
+```
+Finally, we use survfit to plot the Kaplan–Meier estimator of the data along with a 95% confidence interval.
+```{r echo=TRUE}
+fit <- survfit(lung.surv ~ 1)
+plot(fit,mark=19,lwd=2,ylim = c(0.1,1.0),
+        col=c("steelblue","pink","pink"),ylab="Survival Probability",
+        xlab="Days until Death", main="Kaplan-Meier 
+        Estimate for Lung desease Data Set")
+```
+
+##b) We calculate an estimate and a 95% confidence interval for the survivor function at 150 days.
+There is no event happend in day 150. Assume that the survival time at 150 is the mase as the survival time at the previous and nearest time point when the event happened.
+Then we can get 95% confidence interval for survival function at 150 days.
+```{r fit}
+summary(fit)
+max(lung$time[lung$time<150])
+summary(fit,time=150)
+```
+We can say that we are 95% confident that the survival rate at 150th day is between 0.742 and 0.848.
+
+##c) We calculate an estimate and a 95% confidence interval for the median survival time.
+```{r med.tm med.low.tm med.up.tm}
+med.tm <- min(fit$time[fit$surv < 0.5])
+med.low.tm<- min(fit$time[fit$lower < 0.5])
+med.up.tm <-  min(fit$time[fit$upper < 0.5])
+c(med.low.tm, med.tm, med.up.tm)
+print(fit)
+```
+The estimate of median suvival time is 310.
+The 95% confidence interval is (285,363).
+We are 95% confidnet that the median survival time is between 285 and 363.
+
+##d)
+Plot separate estimators of the survival function for men and women.
+```{r sexmf, echo=TRUE}
+sexmf = survfit(lung.surv~sex,data=lung)
+par(mar=c(5,5,4,2))
+plot(sexmf,xlab="Survival time",ylab = expression(hat(S)(t)),lwd=2, col=1:2, mark.time = TRUE,mark=18)
+legend("topright",legend=c("Male","Female"),col=1:2,pch=rep(19,2))
+```
+
+Generally speaking, the estimate for the women' survial rate is higher. A higher survival function means a longer time until failure or death. There is a small area right at the beginning where function for women is less than the one for men, but this probably represents only a couple of failures. The curves converge near the end of the survival time, around days 750, which means that men and women may have nearly similar survival rates.
+
+##e)
+Calculate separate estimates and 95% confidence intervals for the median survival time for men and women.
+```{r}
+#or we can also use survfit(Surv(lung$time,lung$status)~1, data=lung)
+quantile(sexmf,0.5)
+```
+
+The estimate for median survival time for men is 270, the 95% interval is (212,310).
+We are 95% confident that the median survival time for men is between 212 and 310.
+The estimate for median survival time for wemen is 426, the 95% interval is (348,550).
+We are 95% confident that the median survival time for women is between 310 and 550.
+We can see that the lower bound confident interval for women is even hight than the higher confident interval for man. It shows that, generally speaking, the survival rate for female is higher thant he survival rate for men. However, it cannot represent the whole stroy because this is only the 95% confidence intervals for the median survival time for men and women. We cannot use it to assume survival rate for other percentile.
+
+##Question 3
+##a) 
+First, we read in the data
+```{r}
+Heroin <- read.table("~/Desktop/2019 Fall/PSTAT 175/lab2/Heroin.txt", quote="\"", comment.char="")
+```
+then survfit to plot the Kaplan–Meier estimate along with its 95% confidence interval.
+```{r}
+heroin.surv <- Surv(Heroin$Time,Heroin$Status)
+heroin.fit <- survfit(heroin.surv ~ 1)
+plot(heroin.fit,main="Kaplan-Meier Curves \n for in-patient methadone 
+treatment clinics in Australia",xlab="Days Spent in Clinic",ylab=expression(hat(S)(t)),lwd=2, mark.time = TRUE,mark=18)
+```
+
+##b)Plot an estimate of log(Sˆ(t)) along with a 95% confidence interval computed directly from Greenwood’s formula for the variance.
+```{r,echo=TRUE}
+mj = heroin.fit$n.event
+nj = heroin.fit$n.risk
+Vj = mj/nj/(nj-mj)
+cVj = cumsum(Vj)
+lowerCI = log(heroin.fit$surv) - 1.96*sqrt(cVj)
+upperCI = log(heroin.fit$surv) + 1.96*sqrt(cVj)
+par(mar=c(5,5,4,2))
+plot(heroin.fit$time,log(heroin.fit$surv),lwd=2,type="l",ylim=c(-2,0),xlab="Survival time",ylab=expression(log(hat(S)(t))), col="steelblue")
+lines(heroin.fit$time,lowerCI,lty=2,col=1,lwd=2)
+lines(heroin.fit$time,upperCI,lty=2,col=1,lwd=2)
+```
+
+##c)Transform the plot from part b to give a plot of the estimate of S(t) with a 95% confidence interval. Compare this picture to the result from part a.
+```{r echo=TRUE}
+par(mar=c(5,5,4,2))
+plot(heroin.fit$time,exp(log(heroin.fit$surv)),lwd=2,type="l",
+     ylim=c(0,1),xlab="Survival time",ylab=expression(log(hat(S)(t))),col="steelblue")  
+lines(heroin.fit$time,exp(lowerCI),lty=2,col=1,lwd=2)
+lines(heroin.fit$time,exp(upperCI),lty=2,col=1,lwd=2)
+```
+When we compare the picture to the result from part a, we can see that these two pictures are quite similar.
+
+##d)
+```{r}
+summary(heroin.fit, times=365)
+twoside.h <- max(heroin.fit$time[heroin.fit$time < 365])
+sample_s=0.606
+se=0.0331
+assumed_s=0.5
+TS<-(sample_s-assumed_s)/se
+TS
+p_value=pnorm(TS,lower.tail=T)
+p_value
+```
+H0: S(365)>=0.5 (At least 50% of the patients are in the clinic for more than one year)
+Ha: S(365)<0.5 (less than 50% of the patients are in the clinis for more than one year)
+We use the one-sided test since we only need the p-value for P(Z>z).
+Use a significant level of 0.05, since the p value=0.9993186, which is much greater than 0.95, we fail to reject the null hypothesis. We can conclude that at least 50% of the patients are in the clinic for more than one year.
+
+##e)
+Using the 95% confidence intervals produced by the summary of the survfit output, give an interval for the 70th percentile. 
+```{r}
+lower.h <- min(heroin.fit$time[heroin.fit$lower < 0.3])
+upper.h <- max(heroin.fit$time[heroin.fit$upper > 0.3])
+summary(heroin.fit,time=c(lower.h,upper.h))
+c(lower.h,upper.h)
+```
+The interval for 70th percentile along with 95% confident interval is (661,826)
+
+```{r}
+quantile(heroin.fit,probs=0.8,conf.int = TRUE)
+```
+The difficulty I find if I tried to find an interval for the 80th percentile is that it gives a missing value for the upper bound.
+

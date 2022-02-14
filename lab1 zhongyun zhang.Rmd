@@ -1,0 +1,104 @@
+---
+title: "lab1 zhongyun_zhang"
+author: "zhongyun zhang"
+date: "2019/10/6"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+##a) 
+First, we need to import vets.txt
+Second, we read in the first column of data as a vector and call it vet.time
+``` {r}
+vets <- read.table("~/Desktop/2019 Fall/PSTAT 175/lab1/vets.txt", quote="\"", comment.char="")
+head(vets)
+vet.time<-vets$V1
+```
+##b)
+We read second column as a vector vet.cns, in this column, 1 is an event occured 
+for that patient and 0 is when that patient is censored
+```{r vet.cns}
+vet.cns<-vets$V2
+```
+##c) 
+First, we need to load library survival.
+Second, we create a function called vet.surv by using the Surv function. 
+Third, we print out the result.
+```{r vet.surv}
+#install.packages("survival")
+library(survival)
+vet.surv<-Surv(vet.time,vet.cns)
+print(vet.surv)
+```
+##d)
+There are 137 patients in the data, and we use function mean to compute the 
+average survival time of patients
+```{r}
+mean(vet.time)
+```
+This may be a biased estimate of the average time until an event, since this calculated mean time(121.6677) contains survival time for patients with an event occured and survival time for patients who were censored. In this way, the mean is not the mean time for patients who got the event. In order to get the accurate average time until an event, we need to exclude those time that parients were censored.
+
+##e)
+Calculate sum(vet.cns) and sum(vet.time*vet.cns) by using function sum
+```{r vet.cns vet.time*vet.cns}
+sum(vet.cns)
+sum(vet.time*vet.cns)
+```
+For sum of vet.cns, it is actually adding up all patients who had an event occured. There are 128 peole who had an event occured.
+For sum of vet.time*vet.cns, 15632 is the total amount of time for all patients who had an event occured on themselves.
+
+##f)
+We calculate function mean(vet.surv).
+```{r}
+mean(vet.surv)
+```
+This mean is the mean time for patients who had event happend.(Exclude patients who were censored)
+
+##Problem2
+
+##a)
+Construct a survival object ret.surv by using Surv function.
+First, we need to load library survival
+```{r}
+#install.packages("survival")
+library(survival)
+```
+Second, we need to import retire.txt
+```{r retire}
+setwd("~/Desktop/2019 Fall/PSTAT 175/lab1")
+retire <- read.table("retire.txt", header=TRUE,skip=2)
+```
+Third, we can construct surv function
+```{r ret.time ret.death}
+ret.time<-retire$time
+ret.death<-retire$death
+ret.surv<-Surv(ret.time,ret.death)
+```
+
+##b)
+The function survfit calulates a Kaplan–Meier estimate of the survival function. 
+```{r}
+retire.fit<-survfit(ret.surv ~ 1)
+```
+
+##c)
+Use plot function on the results from survfit to generate a picture of the estimate
+of the survival function.
+```{r,echo=FALSE}
+plot(retire.fit,main="Kaplan-Meier Curves \n for retired people death",
+     xlab="time \n (until death in month)",ylab="S(t)")
+```
+##d)
+Use the summary function on the results from survfit to generate a summary of the survival function.
+```{r}
+summary(retire.fit)
+```
+The probability of surviving past 50 months in this sample is considerably high, around 80% people still survive, though the probability of surviving is decresing.
+

@@ -1,0 +1,342 @@
+---
+title: "Final Project"
+author: "kerry wang, kaiyi yang, zhongyun zhang"
+date: "2019/11/30"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Abstract
+    Drug abuse is gradually becoming a significant problem in the modern US society. Our group is interested in how different factors such as race, prior drug use, site, IV drug use, treatment duration would affect the rate of people return to drug use after treatment. Hence, we build a Cox Proportional Hazard model to analyze the result of 628 people from the dataset.
+    
+    
+## Data source and Background information
+    The title of data is called UIS Study. Our dataset is chosen from the example of the book: Applied Survival Analysis: Regression Modeling of Time to Event Data by authors John Wiley and Sons Inc. The data frame has 628 observations with 8 variables.
+    We have five fixed covariates: Heroin/cocaine use during 3 months prior to admission, IV drug use history at admission, treatment randomization assignment, subject's race: whether this person is white, and treatement site: where the treatment located.
+    The variables are:
+- hercoc (Heroin/cocaine use during 3 months prior to admission), code 1 = heroin and cocaine, 2 = herorin only, 3 = cocaine only, 4 = neither herorin nor cocaine.
+- ivhx (IV drug use history at enrollment), code 1 = never, 2 = previous, 3 = recent.
+- treat (treatment randomization assignment), code 0 = short, 1 = long.
+- site (Treatment Site), code 0 = location A, 1 = location B.   
+- race (participant race), 1 for white and 0 other races.
+- time (Time to Return to Drug Use), measured from admission, unit:Days.
+- censor (Returned to Drug Use), code 1 = Returned to Drug use, 0 = Otherwise.
+
+```{r}
+#install.packages("survminer")
+#install.packages("ggplot2")
+#install.packages("magrittr")
+#install.packages("ggpubr")
+#rm(list=ls())
+```
+
+```{r, echo=false}
+library(survival)
+#library(ggplot2)
+#library(survminer)
+require("survival")
+```
+```{r,echo=false}
+uis<-read.table("uisdata.txt")
+uis$treat<-as.factor(uis$treat)
+uis$hercoc<-as.factor(uis$hercoc)
+uis$race<-as.factor(uis$race)
+uis$ivhx<-as.factor(uis$ivhx)
+uis$site<-as.factor(uis$site)
+```
+
+## Research Question
+    In this project, our group studies whether Heroin/cocaine use during 3 months prior to admission, IV drug use history, treatment length, treatment site or race of observants will lead to subjects’ returning to drug use, and how these factors affects the survival time.
+
+## KM curves for all features 
+```{r, echo=false}
+plot(survfit(Surv(uis$time,uis$censor)~1),
+     main = "Kaplan-Meier Curves",
+     xlab = "Days",
+     ylab = "S(t)")
+```
+
+##Data Exploration 
+    Before doing the Cox PH model, we use the summary function to see the details in the data. There are 575 valid data out of 628. From the summary, we can see 430 out of 575 observants are white. 192 out of 575 people had neither Heroin nor Cocaine 3 months prior to admission. Moreover, the treatment randomization assignment for short and long time has almost equal split. About 70% of drag users are in site A, and 30% rest are in site B.  
+
+#Variables:hercoc, ivhx, race, treat, site
+```{r, echo=false}
+head(uis)
+summary(uis)
+plot(density(uis$time),
+     main = "Days until return to drugs")
+```
+
+##KM curves 
+    Now, we plot the Kaplan-Meier survival curve by using these five covariates: hercoc, ivhx, race, treat, site. As we can see from the plot, people who never had IV drug use history at admission had longer survival time with slightly higher probability not to return to drug use. People in site A and B, have nearly same rate of treatment success. Observants with longer treatment tend to have slightly higher rate not returning to drug use than people with short treatment. However, at around day 650, they have same rate. This may be 
+
+```{r, echo=false}
+plot(survfit (Surv(time,censor)~hercoc, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2,3,4))
+legend("topright", legend = c("H&C","H","C","Neither"), col = 1:4, pch=rep(19,2))
+
+plot(survfit (Surv(time,censor)~ivhx, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2,3))
+legend("topright", legend = c("Never","Previous","Recent"), col = 1:3, pch=rep(19,2))
+
+
+plot(survfit (Surv(time,censor)~race, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2))
+legend("topright", legend = c("White","Other"), col = 1:2, pch=rep(19,2))
+
+
+plot(survfit (Surv(time,censor)~treat, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2))
+legend("topright", legend = c("Short","Long"), col = 1:2, pch=rep(19,2))
+
+
+plot(survfit (Surv(time,censor)~site, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2))
+legend("topright",  legend = c("A","B"), col = 1:2, pch=rep(19,2))
+
+```
+
+## Log rank test
+    After visualizing the Kaplan-Meier curves, we utilize log rank test to see if every variable had significant effect on the rate of observants reuse drug. We can see from the data that ivhx, race and treat have small p-value less than 0.05, 0.001, 0.006, 0.01 respectively. Variable hercoc and site have p value greater than 0.05, which means they have no significant effect on the drug reuse. Therefore, we will only include ivhx, race, and treat in our further study.
+
+```{r, echo=false}
+survdiff(Surv(time,censor)~hercoc, data = uis)
+survdiff(Surv(time,censor)~ivhx, data = uis)
+survdiff(Surv(time,censor)~race, data = uis)
+survdiff(Surv(time,censor)~treat, data = uis)
+survdiff(Surv(time,censor)~site, data = uis)
+```
+
+## Model building 
+    Before we start to build Cox Proportional Hazard model, we want to use forward selection and backward selection to choose the right covariate. To start with, we use forward selection with AIC in R, which gradually adding one variable to the model. The model start with no variable in and started to add ivhx, treat, race into it. It ends at calling both three variable meaning that we should include all of them into the model. Moreover, for backward selection, it starts with full model and reduce one covariate in the next model. It also turns out to hold the same result with forward selection that we should include ivhx, treat, race in our model.
+
+```{r, echo=false}
+mod.0<-coxph(Surv(time,censor)~1, data = uis)
+mod.full<-coxph(Surv(time,censor)~hercoc + ivhx + race + treat + site,data=uis)
+step(mod.0,scope = list(lower= mod.0, upper = mod.full),
+     direction = "forward")
+step(mod.full,scope = list(lower= mod.0, upper = mod.full),
+     direction = "backward")
+```
+
+    Furthermore, we start to do the likelihood ratio test to choose covariate. We first put individual variable in to the model. Then, include all covariates the model. We can see that p-value for the likelihood ratio tests indicate that all these three varaibles are significant.
+
+```{r, echo=false}
+cox1<-coxph(Surv(time, censor)~ivhx, data = uis)
+summary(cox1)
+cox2<-coxph(Surv(time, censor)~race, data = uis)
+summary(cox2)
+cox3<-coxph(Surv(time, censor)~treat, data = uis)
+summary(cox1)
+coxful<-coxph(Surv(time, censor)~ivhx+race+treat, data = uis)
+summary(coxful)
+anova(coxful)
+```
+
+    So we choose the most significant variable "ivhx" and then add "race" to build a compare model. As we can see, we should add "race" into the model. Then, we also add "treat" into the model and find that it is significant. In the end, we get the same result as the forward selectionand backward selection that ivhx, racec, treat should be add into the model.
+    
+```{r, echo=false}
+cox4<-coxph(Surv(time, censor)~ivhx + race, data = uis)
+summary(cox4)
+anova(cox4)
+cox5<-coxph(Surv(time, censor)~ivhx+treat, data = uis)
+summary(cox5)
+cox6<-coxph(Surv(time, censor)~treat+race, data = uis)
+summary(cox6)
+```
+
+## Model Checking 
+    We need to do the residual tests and make c-log-log plot to check if covariates ivhx, race, and treat satisfy the Cox PH assumption before we do the Cox PH model.
+
+## c-log-log plot
+    Now, we start to plot the c-log-log plot to check if covariates satisfy Cox PH. As we can see from the graph, three models have some minor cross overs. We want to arrive at the conclusion: all these three variables pass c-log-log test that we do not need to stratify. However, we are concernd about the cross overs, then we decide to use cox.zph function to justify our answer.
+
+```{r, echo=false}
+plot(survfit(Surv(time,censor)~ivhx, data = uis),lwd=2,col=c(1,2,3),
+     fun="cloglog",xlab="Time",ylab="log(-log(S(t))", xlim = c(2,1200))
+legend('topleft',c("Never used","Previously used","Recently used"),fill = c(1,2,3))
+plot(survfit(Surv(time,censor)~race, data = uis),lwd=2,col=c(1,2),
+     fun="cloglog",xlab="Time",ylab="log(-log(S(t))", xlim = c(2,1200))
+legend('topleft',c("race: white","race: other"),fill = c(1,2))
+plot(survfit(Surv(time,censor)~treat, data = uis),lwd=2,col=c(1,2),
+     fun="cloglog",xlab="Time",ylab="log(-log(S(t))",xlim = c(2,1200))
+legend('topleft',c("short treatment","long treatment"),fill = c(1,2))
+
+```
+
+
+## Residule tests
+    cox.zph is a function in R that performs statistical tests on the PH assumption based on Schoenfeld residuals. As we can see from the result, ivhx, race, and treat all have p-value greater than 0.05. In this way, we decide not to do stratification. 
+
+```{r, echo=false}
+cox.zph(coxful)
+```
+
+## interaction term
+    After doing the Cox PH assumption check, we want to see if there are any interaction terms. Three potential interaction candidates are ivhx * race, ivhx * treat, race * treat. By using anova to analyze, we can see that none of three interaction terms are significant because they have p-value greater than 0.05. Therefore, our final model is still ivhx + race + treat.
+
+```{r, echo=false}
+cox7<-coxph(Surv(time, censor)~ivhx * race, data = uis)
+summary(cox7)
+anova(cox4,cox7)
+#lrt1<-2*(cox1$oglik[2]-cox6$loglik[2])
+#lrt1
+#pchisq(lrt1,df = 1, lower.tail = FALSE)
+
+cox8<-coxph(Surv(time, censor)~ivhx * treat, data = uis)
+summary(cox8)
+anova(cox5,cox8)
+#lrt1<-2*(cox1$oglik[2]-cox7$loglik[2])
+#lrt1
+#pchisq(lrt1,df = 1, lower.tail = FALSE)
+
+cox9<-coxph(Surv(time, censor)~race * treat, data = uis)
+summary(cox9)
+anova(cox6,cox9)
+```
+
+## Hazard Ratios and C.I.
+    Now, we use ggforest() function to create a graph to view hazard ratio and confidence interval of different covariate in each group.
+    
+```{r, echo=false}
+ggforest(coxful)
+plot(survfit (Surv(time,censor)~site, data = uis),
+     xlab = "Survival time",
+     ylab = "S(t)",
+     col = c(1,2))
+
+bhaz = basehaz(coxful)
+ggplot(bhaz)+geom_line(aes(x = time, y = hazard, colour = 1),size = 2)
+```
+    As we look at the hazard ratio in the graph, we can see that hazard ratio for observants who have previous IV drug use history(ivhx2) are centered at 1.17, and it has a 95% confidence interval of 0.90 to 1.51. Which points out that subjects with previous IV Drugs use history at admission is 17% more likely to return to drug use than subjects with no IV Drugs use history. While for observants who recently have IV drug use history at admission(ivhx3) has hazard ratio centered at 1.39, with a 95% confidence interval between 1.13 to 1.72. This means that subjects with recent IV Drugs use history at admission is 39% more likely to return to drug use than subjects with no IV Drugs use history. For hazard ratio of race, non white(race2) are centered at 0.8, with 95% confidence interval between 0.64 to 0.99. Which means that white people is 20% less likely to return to drug use than people of race other than white. Furthermore, harzard ratio for observants who had longer treatment are centered at 0.81, had 95% confidence interval of 0.67 to 0.91. Subjects who get longer treatment is 19% less likely to return to drug use than those who get shorter treatment.  
+
+## Extension 1 AFT Model
+We try to build AFT model in this part. We first draw the survival odds plot to determine which distribution we are going to use.  For each of the variables, the plot show a straight line, so we adopt the log-logistic distribution. 
+
+```{r, echo=false}
+uisrace <- survfit(Surv(time,censor)~race,data=uis)
+plot(log(uisrace$time),
+     log(uisrace$surv/(1-uisrace$surv)),
+     pch=19,
+     xlab="Log Time",
+     ylab="Log Odds of Survival",
+     col=1)
+uisivhx <-survfit(Surv(time,censor)~ivhx,data=uis)
+plot(log(uisivhx$time),
+     log(uisivhx$surv/(1-uisivhx$surv)),
+     pch=19,
+     xlab="Log Time",
+     ylab="Log Odds of Survival",
+     col=1)
+uistreat <-survfit(Surv(time,censor)~treat,data=uis)
+plot(log(uistreat$time),
+     log(uistreat$surv/(1-uistreat$surv)),
+     pch=19,
+     xlab="Log Time",
+     ylab="Log Odds of Survival",
+     col=1)
+loglogistic <- survreg(Surv(time,censor)~ivhx + race +treat,data=uis,dist="loglogistic")
+summary(loglogistic)
+afivhx1<-exp(0.335)
+afivhx2<-exp(0.188)
+afrace<-exp(-0.260)
+aftreat<-exp(-0.332)
+```
+    
+    According to the summary table, the estimated acceleration factor between subjects with previous IV drug use history (ivhx=2) and subjects with no IV drug use history(ivhx=1) is 0.86 (e^-0.147). This indicates the probability of people who never had IV drug use keeping away from relapse for x days is the same with the probability of those who had IV drug use keeping away from relapse for 0.86*x days.
+
+	The estimated acceleration factor between subjects with recent IV drug use history (ivhx=3) and subjects with no IV drug use history(ivhx=1) is 0.715 (e^-0.147). This indicates the probability of people who never have IV drug use keeping away from relapse for time x days is the same with the probability of those who had recent IV drug use keeping away from relapse for time 0.715*x days.
+
+	From the above two acceleration factors, we find that at the same survival probability level, the people who had previous or recent IV drug use history keep away from drug use for shorter time, compared with those who never had IV drug use. Esepcially for those who had recent IV drug use, they return to drug use most quickly.   
+
+	The estimated acceleration factor expression between white people (race=0) and other races (race=1) is 1.30 (e^-0.260). This indicates the probability of white people keeping away from relapse for time t is the same with the probability of those of other races keeping away from relapse for time 1.30*t. Hence, at the same survival probability level, white people keep away from drug use for shorter time compared with subjects of other races.
+
+	The estimated acceleration factor between long treatment (treat=1) and short treatment (race=0) is 0.72 (e^-0.332). This indicates the probability of subjects assigned to long treatment group keeping away from relapse for time x days is the same as the probability of subjects assigned to short treatment group keeping away from relapse for time 0.72*x days. Hence, at the same survival probability level, people who get short treatment keep away from relapse for shorter time compared with people who get long treatment.
+
+##Extention 2 Time Varying Parameter
+#Survsplit
+    For this part, we want to find out whether the covariates' affect on the probability of returning to drug use varies depending on time. 
+    We want to split the survival time into a few appropriate intervals, so we need to find the reasonable cutting point(s). We first look for the cutting points that evenly distributes the subjects to each time interval. We find that when we set 50th day and 150th day as cutting points and split the survival time into three intervals, the number of subjects falls into each time groups is relatively close to each other. 575 subjects has a survival time that falls between or beyond the interval 0-50 days; 495 subjects has a survival time that falls between or beyond the time interval 50-150 days; 318 subjects has a survival time that longer than 150 days. Therefore, the sample size of each time group is big enough to use Cox PH model individually.
+```{r, echo=false}
+uis2<-survSplit(Surv(time, censor)~.,dat = uis, cut = c(50,150), episode = "timegroup")
+uis2$timegroup<-factor(uis2$timegroup)
+summary(uis2)
+coxex1<-coxph(Surv(uis2$tstart,uis2$time,uis2$censor)~ivhx + race + treat*strata(timegroup),data = uis2)
+coxex2<-coxph(Surv(uis2$tstart,uis2$time,uis2$censor)~ivhx + treat + race*strata(timegroup),data = uis2)
+coxex3<-coxph(Surv(uis2$tstart,uis2$time,uis2$censor)~race + treat + ivhx*strata(timegroup),data = uis2)
+
+summary(coxex1)
+summary(coxex2)
+summary(coxex3)
+```
+
+    Then we stratify the time group and check if any of our variables has interaction with the time groups. We check one variable at a time, so we build three models. For each of the model, all the interaction terms are insignificant. Therefore, none of our three variables affect survival probability differently depending on time, when we cut survival time at the 50th day and the 150th day.
+    Since the above cutting points do not give significant interaction terms, we decide to choose better cutting point(s) by looking at the event frequency plot. 
+```{r, echo=false}
+uisplot<-uis
+uisplot$censor<-as.factor(uisplot$censor)
+ggplot(uisplot, aes(time, colour = censor)) +
+        geom_freqpoly(binwidth = 20)+expand_limits(x=c(0,1200), y=c(0, 50))+ scale_x_continuous(breaks= c(50,100,150,200,300,400,500,600,700,800,900,1000,1100,1200))
+```
+
+    The frequency plot show the number of events and cencored subjects at different time. We are looking for the points at which significant declines occur. The survival probabilities before and after such points are very different, which probably indicates a transition from one phase of drug rehabilitation to another. From the plot, we find two major declines occured at around the 80th day and the 155th day.
+
+```{r, echo=false}
+uis3<-survSplit(Surv(time, censor)~.,dat = uis, cut = c(80,155), episode = "timegroup")
+uis3$timegroup<-factor(uis3$timegroup)
+summary(uis3)
+```
+
+    Then, We split the survival time at the 80 and 155. 575 subjects has a survival time that falls between or beyond the interval 0-50 days; 440 subjects has a survival time that falls between or beyond the time interval 50-150 days; 313 subjects has a survival time that longer than 150 days. Again, the sample size of each time group is big enough to use Cox PH model individually.
+    
+```{r, echo=false}
+coxex4<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx + race + treat*strata(timegroup),data = uis3)
+coxex5<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx + treat + race*strata(timegroup),data = uis3)
+coxex6<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~race + treat + ivhx*strata(timegroup),data = uis3)
+summary(coxex4)
+summary(coxex5)
+summary(coxex6)
+```
+    
+    Again, we stratify the time group and look for any significant interaction between the each variable and time groups. Only one interaction term treatment*time group2 is signicant. Its p-value is 0.02874. Therefore, the effect of treatment on survival rate is likely to vary depending on time. To confirm the model, we use anova function to perform likelihood ratio test.
+     Becasue anova is a order-sensitive function, we need to determine the order of the variables. We first run anova with all the variables stratified by timegroup. The variable with smallest p-value should be included first. Then, with all the variables arranged in correct order, we run anova again. Finally, we drop a few variables that have large p-values until all the terms in table is significant. 
+```{r, echo=false}
+coxex7<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx+race+treat*strata(timegroup) + ivhx*strata(timegroup) + race*strata(timegroup),data = uis3)
+anova(coxex7)
+
+coxex8<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx+race+treat*strata(timegroup) + race*strata(timegroup) + ivhx*strata(timegroup),data = uis3)
+anova(coxex8)
+
+coxex9<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx+race+treat*strata(timegroup) + race*strata(timegroup), data = uis3)
+anova(coxex9)
+
+coxex10<-coxph(Surv(uis3$tstart,uis3$time,uis3$censor)~ivhx+race+treat*strata(timegroup), data = uis3)
+anova(coxex10)
+```
+    
+    According to the p-values, the model should include variables in the order of treat, race and ivhx.
+    With the three variables arranged in correct order, we run anova again: 
+    
+    We find that ivhx has largest p-value 0.836914. Hence, we remove ivhx from the model and rerun the anova function:
+    
+    There is still an insignificant term race in the table. We remove race to make sure all the terms in the table is significant. After removing ivhx and race, the only variable included in the model is treat. This result agrees with the previous conclusion that treatment is the only varible whose effect on survival probability is time-dependent.
+    
+## Conclusion
+    For this project, we use a right-censored dataset of 

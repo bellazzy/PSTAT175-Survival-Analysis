@@ -1,0 +1,192 @@
+---
+title: "lab03"
+author: "zhongyun zhang"
+date: "2019/10/25"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Problem 1
+
+a.Plot the Kaplan–Meier estimate of the survivor function.
+```{r}
+#install.packages("survival")
+library(survival)
+data(kidney)
+kidney.surv <- Surv(kidney$time,kidney$status)
+kidney.fit = survfit(Surv(kidney$time,kidney$status)~1,data=kidney)
+plot(kidney.fit,xlab="Survival Time",ylab="Estimated Survival Probability",main="Kaplan-Meier Curve \n for kidney patients" )
+```
+
+
+(b) Use survdiff to perform a logrank test on whether or not there is a difference between the sexes. The kidney$sex variable is coded as 1 for male subjects and 2 for female subjects. What do you conclude from this test?
+```{r}
+survdiff(Surv(time,status)~sex, data=kidney)
+```
+The p-value is 0.004<0.05, we conclude that there is statistically significant difference between the men and women's groups survival rates. 
+
+
+(c) Create a plot that compares the Kaplan–Meier estimates of the survivor functions for the two sexes separately. Describe what you see in this plot to confirm your test result from part (b).
+```{r}
+sexkm = survfit(kidney.surv~sex,data=kidney)
+par(mar=c(5,5,4,2))
+plot(sexkm,xlab="Survival time",ylab = expression(hat(S)(t)),lwd=2, col=1:2, mark.time = TRUE,mark=18,main="Kaplan-Meier Curve \n for kidney dialysis patients")
+legend("topright",legend=c("Male","Female"),col=1:2,pch=rep(19,2))
+```
+Generally speaking, the estimate for the women' survial rate is a lot higher. A higher survival function means a longer time until failure or death. The curves converge near the end of the survival time, around days 440, which means that at that time, men and women may have nearly similar survival rates. This confirms that there is statistically significant differences between the treatment groups survival rates.
+
+
+(d) Use the coxph function to estimate the hazard proportion between the two sexes. Explain to someone who is not familiar with the model how you would interpret the meaning of this number. For instance, what does it say about the different probabilities of going a month without an infection? Give a 95% confidence interval for your parameter estimate.
+```{r}
+#Use compare the two treatment groups (without considering covariates).
+cox0<-coxph(Surv(kidney$time,kidney$status)~sex, data = kidney)
+cox0
+(exp(confint(cox0,level = 0.95)))
+```
+The estimated hazard proportion between the two sexes is 0.4327.
+The confidence interval of the harzard ratio is (0.241936, 0.7738447)
+Female increase the narzard by a factor of 43.27%, which means female decrease the risk of getting infection by 56.73%. Women's average probability of live without infection is 56.73% higher than men.
+
+
+(e) Looking at the Kaplan–Meier estimate for the male group, the observation in row 42 is concerning to me. Why am I concerned? Explore how your analysis would change if that one observation was removed.
+ 
+```{r}
+
+kidney.male=survfit(Surv(time,status)~1,subset = (kidney$sex==1),data=kidney)
+par(mar=c(5,5,4,2))
+plot(kidney.male,main="Kaplan-Meier Curves \n for kidney dialysis patients",xlab="Survival time", ylab=expression(hat(S)(t)),lwd=2, mark.time = TRUE,mark=18)
+```
+```{r}
+kidney.42<-kidney[-c(42),]
+kidney.42fit<-survfit(Surv(time,status)~1,subset=(kidney.42$sex==1),data=kidney)
+par(mar=c(5,5,4,2))
+plot(kidney.42fit,main="Kaplan-Meier Curves \n for kidney dialysis patients without row 42",xlab="Survival time", ylab=expression(hat(S)(t)),lwd=2, mark.time = TRUE,mark=18)
+```
+The observation in row 42 may be outlied from Kaplan-Meier estimates and it is a censored data.It is improtant because it has the largest survival time.
+After removing the point, the range of x value decrease from more than 500 to about 150, the estimate survival rate increased
+
+
+##Problem 2
+
+(a) Test the hypothesis that there is a significant difference between the two sexes. Report a P-value and a conclusion.
+```{r}
+#install.packages("survival")
+library(survival)
+data("mgus")
+mgus.futime<-mgus$futime
+mgus.death<-mgus$death
+mgus.surv<-Surv(mgus.futime,mgus.death)
+cox2 <- coxph(Surv(futime,death)~sex,data=mgus)
+cox2
+```
+h0=there is no significant difference between two sexes
+h1=there is significant difference between two sexes
+p-value=0.01224<0.05 reject h0, we can conclude that there is significant difference between two cases.
+
+
+(b) Re-run the test of the difference between the sexes, but use the covariates age, alb, creat, hgb, and mspike to control for differences in the groups. Report a P-value and a conclusion.
+```{r}
+cox1 <- coxph(Surv(futime,death)~age+alb+creat+hgb+mspike+sex,data=mgus)
+cox1
+```
+h0= controling variables, there is no significant difference between two sexes
+h1= controling variables, there is significant difference between two sexes
+p-value =0.21298>0.05 we fail to reject h0. We can conclude that there is no significant differences between two sex.
+
+
+(c) How might we explain the difference in the answers to part (a) and (b)?
+```{r}
+coxph(mgus.surv~mgus$age+mgus$alb+mgus$creat+mgus$mspike,data=mgus)
+coxph(mgus.surv~mgus$age+mgus$alb+mgus$creat,data=mgus)
+```
+P value of alb, hgb, msike is more than 0.05, so it should not include in this model, the new model with age and creat goe very small p p-vlue. So age and create should be a better fit for this model. The model in a only have sex in and excluded others. In this way sex is important for this model.However, when otehr variables are added into the modelm they hare more helpful than sex does.
+
+
+(d) Propose a set of covariates that you think best fits the futime data in a not-too-complicated way. Justify your choices with regression results.
+```{r}
+(coxph(mgus.surv~mgus$age+mgus$alb+mgus$creat+mgus$hgb+mgus$mspike, data=mgus))
+```
+```{r}
+(coxph(mgus.surv~mgus$age+mgus$creat,data=mgus))
+```
+The set of covariates best fits data is age and creat.
+The p-value of alb,hgb and mspike are 0.23404,0.12374,0.95483 respectively. The p value are greater than 0.05, so alb, hgb and mspike should not be included in the model. We should only use age and creat.Create a model with age and creat, their p-value get smaller. Age and creat best fit.
+
+
+##Question 3
+
+(a) The vector mgus$pctime contains the time after original diagnosis when the subject was diagnosed with a further, more severe condition. Subjects with a value NA in this vector never had a further diagnosis, and we should treat them as censored observations at their follow-up time mgus$futime. Create a survival object from the pctime and futime measurements. Plot the KM estimate of the survivor function for this data.
+```{r}
+head(mgus)
+mgus$newtime <-mgus$pctime
+mgus$newtime[is.na(mgus$pctime)==TRUE]<-mgus$futime[is.na(mgus$pctime)==TRUE]
+mgus$nevent[is.na(mgus$pctime)==TRUE]<-0
+mgus$nevent[is.na(mgus$pctime)==FALSE]<-1
+mgusnew.fit = survfit(Surv(mgus$newtime,mgus$nevent)~1,data=mgus)
+plot(mgusnew.fit,main="Kaplan-Meier Curve \n for pctiem and futime", xlab="Survival time",ylab = expression(hat(S)(t)),mark.time=TRUE, mark=18)
+
+```
+
+
+(b) Use a Cox proportional model to see if mspike has an effect on the time until a further disease is present. Report a P-value and a conclusion.
+```{r}
+cox3 <- coxph(Surv(newtime,nevent)~mspike,data=mgus)
+cox3
+```
+h0=  mspike has an effect onthe time until a further disease is present
+h1= mspike does not have an effect ont he time until a further disease is present.
+p-value =0.129>0.05 fail to reject h0. We can conclude that  mspike has an effect onthe time until a further disease is present.
+
+
+(c) Test the effect of mspike again but control for sex, age, alb, creat, and hgb. Report a P-value and a conclusion.
+```{r}
+cox4 <- coxph(Surv(newtime,nevent)~mspike+sex+age+alb+creat+hgb,data=mgus)
+cox4
+```
+h0= controlling other coviariates mspike has an effect onthe time until a further disease is present
+h1= controlling other coviariates, mspike does not have an effect ont he time until a further disease is present.
+p-value =0.100>0.05 fail to reject h0. We can conclude that  mspike has an effect onthe time until a further disease is present.
+
+
+##Question 4
+
+(a) Plot the -log-log graphs of the estimates of the survival functions for the men and women in the study. Is there evidence that the proportional hazards model is not appropriate?
+```{r}
+mgus.surv <- Surv(mgus.futime,mgus.death)
+
+mgus.fits<-survfit(Surv(mgus.futime,mgus.death)~sex,data=mgus)
+plot(mgus.fits,lwd=2,col=c(2,4), xlim=c(5,15000),
+fun="cloglog",xlab="Time until Death",ylab="log(S(t))")
+
+legend('topleft',c("male","female"),fill = c("red","blue"))
+```
+
+
+(b) Plot the estimated survival function from coxph for an average female subject, and then the KM estimate using only the women in the study. Compare the two estimates. Does it look like the model gives a reasonable fit?
+```{r}
+mgus.female.cox<-survfit(coxph(Surv(mgus$futime,mgus$death)~mgus$sex,subset=(mgus$sex=="female")))
+#coxph curve for females
+plot(mgus.female.cox,main="Coxph Curve for female \n Kaplan-Meier Curves ",xlab="Survival time", ylab="estimated survival probability,",lwd=2, mark.time = TRUE,mark=18,col='red')
+
+#km curve
+mgus.female.km<-survfit(coxph(Surv(mgus$futime,mgus$death)~1,subset=(mgus$sex=="female")))
+lines(mgus.female.km,col='blue')
+legend('topright',c("coxph","km"),fill=c("red","blue"))
+```
+Two plots are the same, the cox proportional hazard model gives a reasonable fit
+
+
+(c) Use the cox.zph function to perform a test to see if the model is significantly divergent from the proportional hazards model. Interpret the result. Do you think that we are justified in using the proportional hazards assumption in our modeling of the effect of sex?
+```{r}
+
+cox.zph(coxph(mgus.surv~mgus$sex,data=mgus))
+```
+
+h0: the coxph model is not significantly divergent
+ha: the model is significantly divergent from coxph
+The p-value =0.216>0.05, so we can conclude that we fail to reject H0. The model is not significantly hazard model. We are justified in using the proportional hazards assumption in modeling of the effect of sex.
